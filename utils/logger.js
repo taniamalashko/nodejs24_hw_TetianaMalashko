@@ -1,8 +1,8 @@
 const logger = (moduleName) => {
   return {
-    info: (message) => console.log(`[INFO] ${moduleName}: ${message}`),
-    warn: (message) => console.log(`[WARN] ${moduleName}: ${message}`),
-    error: (message) => console.log(`[ERROR] ${moduleName}: ${message}`),
+    info: (...args) => console.log('[INFO] ${moduleName}: ', ...args),
+    warn: (...args) => console.log('[WARN] ${moduleName}: ', ...args),
+    error: (...args) => console.log('[ERROR] ${moduleName}: ', ...args),
   }
 }
 
