@@ -3,32 +3,25 @@ const logger = require('./utils/logger')('File_Sync', config.logger);
 const fsAsync = require('fs/promises');
 const path = require('path');
 
-const readFile = async(filePath) => {
+const asyncFileCopy = async (sourcePath, targetPath) => {
   try {
-    const content = await fsAsync.readFile(filePath, 'utf-8');
-    return content;
+    await fsAsync.access(targetPath);
+    logger.warn(`File ${sourcePath} already exists in ${targetPath}`);
+    return;
   } catch (error) {
-    logger.warn(`Can not read the file: ${filePath}: ${error.message}`);
+    if (error.code !== 'ENOENT') {
+      logger.warn(`Error accessing target file ${targetPath}: ${error.message}`);
+      return;
+    }
   }
-}
 
-const writeFile = async(filePath, content) => {
   try {
-    await fsAsync.writeFile(filePath, content);
-    logger.info(`Content was writed to ${filePath}`);
-  } catch (error) {
-    logger.warn(`Error writing file to ${filePath}: ${error.message}`);
+    await fsAsync.copyFile(sourcePath, targetPath);
+    logger.info(`File ${sourcePath} copied to ${targetPath}`);
+  } catch (copyError) {
+    logger.warn(`Error copying file ${sourcePath} to ${targetPath}: ${copyError.message}`);
   }
-}
-
-const asyncFileCopy = async(filePath, targetPath) => {
-  try {
-    const content = await readFile(filePath);
-    await writeFile(targetPath, content);
-  } catch (error) {
-    logger.warn(`${filePath} already exists in ${targetPath}`);
-  }
-}
+};
 
 const asyncDirectoryCopy = async(sourceDir, targetDir) => {
   const filesInDir = await fsAsync.readdir(sourceDir);
