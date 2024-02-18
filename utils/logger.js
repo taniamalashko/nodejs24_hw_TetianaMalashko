@@ -1,4 +1,24 @@
 const colors = require('colors/safe');
+const fs = require('fs');
+const path = require('path');
+
+const getCurrentDateTime = () => {
+  return new Date().toISOString();
+};
+
+const logsDir = path.join(__dirname, '..', 'logs');
+
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir);
+}
+
+const infoStream = fs.createWriteStream(path.join(logsDir, 'info.log'), { flags: 'a' });
+const errorStream = fs.createWriteStream(path.join(logsDir, 'errors.log'), { flags: 'a' });
+
+process.once("beforeExit", () => {
+  infoStream.end();
+  errorStream.end();
+});
 
 const logger = (moduleName, options) => {
   const { colorsEnabled, logLevel } = options;
@@ -15,14 +35,27 @@ const logger = (moduleName, options) => {
 
   return {
     info: (...args) => {
-      if (logLevelsPriority[logLevel] > logLevelsPriority.info) return;
-      console.log(colors.cyan(`[INFO] ${moduleName}:`), ...args);
+      const currentDateTime = getCurrentDateTime();
+      infoStream.write(`${currentDateTime} ${moduleName}: ${args.join(' ')}\n`);
+      if (logLevelsPriority[logLevel] <= logLevelsPriority.info) {
+        const message = `${colors.cyan('[INFO]', moduleName)}: ${args.join(' ')}`;
+        console.log(message);
+      }
     },
     warn: (...args) => {
-      if (logLevelsPriority[logLevel] > logLevelsPriority.warn) return;
-      console.log(colors.yellow(`[WARN] ${moduleName}:`), ...args);
+      const currentDateTime = getCurrentDateTime();
+      errorStream.write(`${currentDateTime} ${moduleName}: ${args.join(' ')}\n`);
+      if (logLevelsPriority[logLevel] <= logLevelsPriority.warn) {
+        const message = `${colors.yellow('[WARN]', moduleName)}: ${args.join(' ')}\n`;
+        console.log(message);
+      }
     },
-    error: (...args) => console.error(colors.red(`[ERROR] ${moduleName}:`), ...args),
+    error: (...args) => {
+      const currentDateTime = getCurrentDateTime();
+      const message = `${colors.red('[ERROR]', moduleName)}: ${args.join(' ')}\n`;
+      errorStream.write(`${currentDateTime} ${moduleName}: ${args.join(' ')}\n`);
+      console.error(message);
+    }
   };
 };
 
