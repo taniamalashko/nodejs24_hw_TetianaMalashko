@@ -4,71 +4,58 @@ const { validateUserData, validateUserId } = require('../middleware/validation')
 const fs = require('fs');
 const path = require('path');
 
-const usersFilePath = path.join(__dirname, '..', 'data', 'users.json');
+const knexLib = require('knex');
+const knexConfig = require('../knexfile');
+const knex = knexLib(knexConfig);
 
-const ensureUsersFile = () => {
-  const dataDir = path.join(__dirname, '..', 'data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir);
+router.post('/', validateUserData, async (req, resp) => {
+  try {
+    const [user] = await knex('users').insert(req.body).returning('*');
+    console.log('user', user);
+    
+    resp.status(201).json(user);
+  } catch (error) {
+    resp.status(500).json({ error: 'Internal server error' });
   }
-  if (!fs.existsSync(usersFilePath)) {
-    fs.writeFileSync(usersFilePath, '[]', 'utf8');
-  }
-};
-
-ensureUsersFile();
-
-let users = [];
-
-const usersData = fs.readFileSync(usersFilePath, 'utf8');
-users = JSON.parse(usersData);
-
-const generateUserId = () => {
-  return users.length > 0 ? users[users.length - 1].id + 1 : 1;
-};
-
-router.post('/', validateUserData, (req, res) => {
-  const { username, email } = req.body;
-  const userId = generateUserId();
-  const newUser = { id: userId, username, email };
-  users.push(newUser);
-  res.status(200).json(newUser);
 });
 
-router.get('/', (req, res) => {
-  if (users.length === 0) {
-    return res.status(404).json({ error: 'No users found' });
+router.get('/', async (req, res) => {
+  try {
+    const users = await knex('users').select();
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  res.json(users);
 });
 
-router.get('/:userId', validateUserId, (req, res) => {
-  const userId = parseInt(req.params.userId);
-  const user = users.find(user => user.id === userId);
+router.get('/:userId', validateUserId, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const user = await knex('users').where('id', userId).first();
 
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
-  }
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
   
-  res.json(user);
-});
-
-router.delete('/:userId', validateUserId, (req, res) => {
-  const userId = parseInt(req.params.userId);
-  const index = users.findIndex(user => user.id === userId);
-
-  if (index === -1) {
-    return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  users.splice(index, 1);
-  res.sendStatus(200);
 });
 
-process.on('SIGINT', () => {
-  fs.writeFileSync(usersFilePath, JSON.stringify(users), 'utf8');
-  process.exit();
+router.delete('/:userId', validateUserId, async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const rowsDeleted = await knex('users').where('id', userId).del();
+
+    if (rowsDeleted === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.sendStatus(204);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 module.exports = router;
